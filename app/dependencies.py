@@ -23,7 +23,7 @@ def get_current_user(
     db: Session = Depends(get_db)
 ) -> User:
     token = credentials.credentials
-    payload = decode_token(token)
+    payload = decode_token(token, expected_type="access")
     user_id = payload.get("sub")
     if not user_id:
         raise AppException("UNAUTHORIZED", "Invalid token payload", 401)

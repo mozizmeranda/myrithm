@@ -51,10 +51,11 @@ def setup_concurrency_db():
 
     Base.metadata.create_all(bind=engine)
     
-    # Seed active stream
+    # Seed active streams
     session = SessionFactory()
     stream = Stream(id="cardio_conc", title="Concurrency Cardio", is_active=True)
-    session.add(stream)
+    stream_dance = Stream(id="dance", title="Dance Stream", is_active=True)
+    session.add_all([stream, stream_dance])
     session.commit()
     session.close()
 

@@ -45,23 +45,41 @@ def setup_test_db():
         except Exception:
             pass
 
+from app.rate_limiter import reset_rate_limiter_state
+from app.redis_client import reset_redis_memory_state
+
+@pytest.fixture(autouse=True)
+def reset_state_between_tests():
+    reset_rate_limiter_state()
+    reset_redis_memory_state()
+    yield
+    reset_rate_limiter_state()
+    reset_redis_memory_state()
+
 @pytest.fixture
 def db_session():
     session = TestingSessionLocal()
-    yield session
-    session.close()
-    # Clean up all tables after each test
-    with test_engine.connect() as conn:
-        for table in reversed(Base.metadata.sorted_tables):
-            conn.execute(table.delete())
-        conn.commit()
+    try:
+        yield session
+    finally:
+        session.close()
+        # Clean up all tables after each test
+        with test_engine.connect() as conn:
+            for table in reversed(Base.metadata.sorted_tables):
+                conn.execute(table.delete())
+            conn.commit()
 
 @pytest.fixture
 def client(db_session):
     def _override_get_db():
-        yield db_session
+        session = TestingSessionLocal()
+        try:
+            yield session
+        finally:
+            session.close()
 
     app.dependency_overrides[get_db] = _override_get_db
     with TestClient(app) as c:
         yield c
     app.dependency_overrides.clear()
+

@@ -54,5 +54,13 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     full_msg = f"{loc}: {msg}" if loc else msg
     return create_error_response("VALIDATION_ERROR", full_msg, status.HTTP_422_UNPROCESSABLE_ENTITY)
 
+from sqlalchemy.exc import IntegrityError
+
+async def integrity_exception_handler(request: Request, exc: IntegrityError) -> JSONResponse:
+    return create_error_response("CONSTRAINT_VIOLATION", "Database constraint or unique validation failed", status.HTTP_422_UNPROCESSABLE_ENTITY)
+
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    if isinstance(exc, IntegrityError):
+        return await integrity_exception_handler(request, exc)
     return create_error_response("INTERNAL_SERVER_ERROR", "An unexpected error occurred", status.HTTP_500_INTERNAL_SERVER_ERROR)
+

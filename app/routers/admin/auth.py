@@ -12,9 +12,7 @@ auth_service = AuthService()
 
 @router.post("/login", response_model=TokenResponse, dependencies=[Depends(auth_limiter)])
 async def admin_login(req: LoginRequest, response: Response, db: Session = Depends(get_db)):
-    token_resp, refresh_token, expire_seconds = await auth_service.login(db, req.email, req.password)
-    if token_resp.user.role != "admin":
-        raise AppException("FORBIDDEN", "User does not have administrator privileges", 403)
+    token_resp, refresh_token, expire_seconds = await auth_service.login(db, req.email, req.password, required_role="admin")
 
     response.set_cookie(
         key="refresh_token",
@@ -25,3 +23,4 @@ async def admin_login(req: LoginRequest, response: Response, db: Session = Depen
         secure=(settings.APP_ENV == "production")
     )
     return token_resp
+

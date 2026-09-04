@@ -31,10 +31,11 @@ def create_access_token(user_id: str, role: str) -> str:
     payload = {
         "sub": str(user_id),
         "role": role,
+        "type": "access",
         "exp": expire,
         "iat": now
     }
-    return jwt.encode(payload, settings.JWT_SECRET, algorithm="HS256")
+    return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm="HS256")
 
 def create_refresh_token(user_id: str) -> tuple[str, str, int]:
     jti = str(uuid.uuid4())
@@ -44,18 +45,22 @@ def create_refresh_token(user_id: str) -> tuple[str, str, int]:
     payload = {
         "sub": str(user_id),
         "jti": jti,
+        "type": "refresh",
         "exp": expire,
         "iat": now
     }
-    token = jwt.encode(payload, settings.JWT_SECRET, algorithm="HS256")
+    token = jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm="HS256")
     expire_seconds = int(expire_delta.total_seconds())
     return token, jti, expire_seconds
 
-def decode_token(token: str) -> dict:
+def decode_token(token: str, expected_type: str | None = None) -> dict:
     try:
-        payload = jwt.decode(token, settings.JWT_SECRET, algorithms=["HS256"])
+        payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=["HS256"])
+        if expected_type and payload.get("type") != expected_type:
+            raise AppException("UNAUTHORIZED", f"Invalid token type. Expected {expected_type}", 401)
         return payload
     except jwt.ExpiredSignatureError:
         raise AppException("UNAUTHORIZED", "Token has expired", 401)
     except jwt.InvalidTokenError:
         raise AppException("UNAUTHORIZED", "Invalid token", 401)
+

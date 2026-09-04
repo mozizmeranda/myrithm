@@ -1,17 +1,5 @@
-import pytest
-from unittest.mock import patch, AsyncMock
 from app.models.user import User
 from app.security import hash_password
-
-@pytest.fixture(autouse=True)
-def mock_redis():
-    with patch("app.rate_limiter.redis_client.get", new_callable=AsyncMock) as mock_get, \
-         patch("app.rate_limiter.redis_client.pipeline") as mock_pipe, \
-         patch("app.services.auth_service.add_refresh_token", new_callable=AsyncMock):
-        mock_get.return_value = "0"
-        pipe_obj = AsyncMock()
-        mock_pipe.return_value.__aenter__.return_value = pipe_obj
-        yield
 
 def test_admin_flow(client, db_session):
     admin_email = "admin_test@example.com"
@@ -42,7 +30,7 @@ def test_admin_flow(client, db_session):
         json={
             "stream_id": "adm_cardio",
             "title": "Warmup",
-            "video_url": "/media/videos/sample.mp4",
+            "video_url": "/media/videos/1234567890ab.mp4",
             "duration": 60,
             "steps_per_minute": 100,
             "sort_order": 1,
@@ -59,7 +47,7 @@ def test_admin_flow(client, db_session):
         json={
             "stream_id": "adm_cardio",
             "title": "Energetic Music",
-            "audio_url": "/media/audio/sample.mp3",
+            "audio_url": "/media/audio/1234567890ab.mp3",
             "duration": 180,
             "sort_order": 1,
             "is_active": True

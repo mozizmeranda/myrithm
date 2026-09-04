@@ -68,13 +68,9 @@ class AdminService:
             exercise.description = req.description
 
         old_video_url = exercise.video_url
-        if req.video_url is not None and req.video_url != old_video_url:
+        url_changed = (req.video_url is not None and req.video_url != old_video_url)
+        if req.video_url is not None:
             exercise.video_url = req.video_url
-            # Clean up old video file if unused by any other exercise
-            MediaService.delete_local_file_if_unused(
-                old_video_url,
-                lambda url: self.exercise_repo.count_by_video_url(db, url)
-            )
 
         if req.duration is not None:
             exercise.duration = req.duration
@@ -86,6 +82,13 @@ class AdminService:
             exercise.is_active = req.is_active
 
         updated = self.exercise_repo.update(db, exercise)
+
+        if url_changed and old_video_url:
+            MediaService.delete_local_file_if_unused(
+                old_video_url,
+                lambda url: self.exercise_repo.count_by_video_url(db, url)
+            )
+
         return ExerciseResponse.model_validate(updated)
 
     def delete_exercise(self, db: Session, exercise_id: str):
@@ -139,12 +142,9 @@ class AdminService:
             track.artist = req.artist
 
         old_audio_url = track.audio_url
-        if req.audio_url is not None and req.audio_url != old_audio_url:
+        url_changed = (req.audio_url is not None and req.audio_url != old_audio_url)
+        if req.audio_url is not None:
             track.audio_url = req.audio_url
-            MediaService.delete_local_file_if_unused(
-                old_audio_url,
-                lambda url: self.track_repo.count_by_audio_url(db, url)
-            )
 
         if req.duration is not None:
             track.duration = req.duration
@@ -154,6 +154,13 @@ class AdminService:
             track.is_active = req.is_active
 
         updated = self.track_repo.update(db, track)
+
+        if url_changed and old_audio_url:
+            MediaService.delete_local_file_if_unused(
+                old_audio_url,
+                lambda url: self.track_repo.count_by_audio_url(db, url)
+            )
+
         return TrackResponse.model_validate(updated)
 
     def delete_track(self, db: Session, track_id: str):

@@ -10,12 +10,14 @@ class UserRepository:
         return db.scalar(select(User).where(User.id == user_id))
 
     def get_by_email(self, db: Session, email: str) -> Optional[User]:
-        return db.scalar(select(User).where(func.lower(User.email) == func.lower(email)))
+        norm_email = email.lower().strip()
+        return db.scalar(select(User).where(User.email == norm_email))
 
     def create(self, db: Session, email: str, password_hash: str, role: str = "user") -> User:
+        norm_email = email.lower().strip()
         try:
             user = User(
-                email=email,
+                email=norm_email,
                 password_hash=password_hash,
                 role=role
             )
@@ -23,9 +25,9 @@ class UserRepository:
             db.commit()
             db.refresh(user)
             return user
-        except IntegrityError:
+        except IntegrityError as e:
             db.rollback()
-            raise AppException("DUPLICATE_EMAIL", "Email is already registered", 409)
+            raise AppException("DUPLICATE_EMAIL", "Email is already registered", 409) from e
 
     def update_password(self, db: Session, user_id: str, new_password_hash: str) -> User:
         user = self.get_by_id(db, user_id)

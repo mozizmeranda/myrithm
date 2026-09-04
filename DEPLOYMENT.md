@@ -96,9 +96,10 @@ Description=MyRhythm FastAPI Backend Service
 After=network.target
 
 [Service]
-User=root
+User=myrhythm
+Group=myrhythm
 WorkingDirectory=/var/www/myrhythm-backend
-ExecStart=/var/www/myrhythm-backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8083 --workers 2
+ExecStart=/var/www/myrhythm-backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8083 --workers 2 --proxy-headers --forwarded-allow-ips='127.0.0.1'
 Restart=always
 RestartSec=5
 EnvironmentFile=/var/www/myrhythm-backend/.env

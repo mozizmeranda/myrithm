@@ -1,9 +1,12 @@
 import os
 import uuid
+import logging
 from pathlib import Path
 from fastapi import UploadFile
 from app.config import settings
 from app.errors import AppException
+
+logger = logging.getLogger(__name__)
 
 ALLOWED_VIDEO_MIME_TYPES = {"video/mp4", "video/webm", "video/x-matroska", "application/octet-stream"}
 ALLOWED_VIDEO_EXTENSIONS = {".mp4", ".webm", ".mkv"}
@@ -53,17 +56,28 @@ class MediaService:
 
     @staticmethod
     def delete_local_file_if_unused(url_path: str, count_references_fn):
-        if not url_path or not url_path.startswith("/media/"):
+        if not url_path or not (url_path.startswith("/media/videos/") or url_path.startswith("/media/audio/")):
             return
         
+        if ".." in url_path:
+            logger.warning("Traversal attempt blocked in delete_local_file_if_unused: %s", url_path)
+            return
+
         # Check if another record uses the same file
         if count_references_fn(url_path) > 0:
             return
 
-        rel_path = url_path.lstrip("/")
-        full_path = Path(".") / rel_path
+        media_base = settings.MEDIA_DIR.resolve()
+        clean_rel = url_path.removeprefix("/media/").lstrip("/")
+        full_path = (media_base / clean_rel).resolve()
+
+        if not full_path.is_relative_to(media_base):
+            logger.warning("Path traversal escape blocked: %s -> %s", url_path, full_path)
+            return
+
         if full_path.exists() and full_path.is_file():
             try:
                 full_path.unlink(missing_ok=True)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.error("Failed to delete local media file %s: %s", full_path, e)
+

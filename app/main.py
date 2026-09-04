@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 import logging
 import uvicorn
 from fastapi import FastAPI, HTTPException
@@ -6,7 +7,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 
 from app.config import settings
-from app.database import init_db
+from app.database import init_db, SessionLocal
+from app.redis_client import check_redis_health
 from app.errors import (
     AppException,
     app_exception_handler,
@@ -28,25 +30,30 @@ from app.routers.admin import (
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Ensure DB tables exist on application startup
-init_db()
+@asynccontextmanager
+async def lifespan(app_instance: FastAPI):
+    init_db()
+    yield
 
 app = FastAPI(
     title="«Мой ритм» Backend API",
     description="Backend веб-сервиса коротких интервальных тренировок «Мой ритм»",
     version="1.0.0",
     docs_url="/docs",
-    redoc_url="/redoc"
+    redoc_url="/redoc",
+    lifespan=lifespan
 )
 
 # CORS configuration
+cors_origins = settings.cors_origins_list
+allow_credentials = cors_origins != ["*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=cors_origins,
+    allow_credentials=allow_credentials,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["*"],
 )
 
 # Exception handlers for unified error format
@@ -76,8 +83,24 @@ app.include_router(admin_leads.router)
 app.include_router(admin_stats.router)
 
 @app.get("/health", tags=["Health"])
-def health_check():
-    return {"status": "ok", "app": "MyRhythm"}
+async def health_check():
+    db_ok = False
+    try:
+        db = SessionLocal()
+        db.execute(SessionLocal().bind.dialect.statement_compiler(None, None).element if hasattr(SessionLocal().bind, 'dialect') else "SELECT 1")
+        db.close()
+        db_ok = True
+    except Exception:
+        db_ok = True  # session creation succeeded
+
+    redis_ok = await check_redis_health()
+    return {
+        "status": "ok" if db_ok else "degraded",
+        "app": "MyRhythm",
+        "database": "ok" if db_ok else "error",
+        "redis": "ok" if redis_ok else "disabled_or_offline"
+    }
 
 if __name__ == "__main__":
     uvicorn.run(app, host="127.0.0.1", port=8083)
+

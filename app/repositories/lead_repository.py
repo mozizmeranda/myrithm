@@ -4,8 +4,16 @@ from sqlalchemy import select, func
 from app.models.lead import StreamLead
 
 class LeadRepository:
+    def get_by_email_and_stream(self, db: Session, email: str, stream_code: str) -> Optional[StreamLead]:
+        return db.scalar(
+            select(StreamLead).where(
+                func.lower(StreamLead.email) == email.lower().strip(),
+                StreamLead.stream_code == stream_code
+            )
+        )
+
     def create(self, db: Session, email: str, stream_code: str) -> StreamLead:
-        lead = StreamLead(email=email, stream_code=stream_code)
+        lead = StreamLead(email=email.lower().strip(), stream_code=stream_code)
         db.add(lead)
         db.commit()
         db.refresh(lead)

@@ -27,9 +27,12 @@ class AuthService:
         user = self.user_repo.create(db, email, hashed, role="user")
         return UserResponse.model_validate(user)
 
-    async def login(self, db: Session, email: str, password: str) -> tuple[TokenResponse, str, int]:
+    async def login(self, db: Session, email: str, password: str, required_role: str | None = None) -> tuple[TokenResponse, str, int]:
         user = self.user_repo.get_by_email(db, email)
         if not user or not verify_password(password, user.password_hash):
+            raise AppException("UNAUTHORIZED", "Invalid email or password", 401)
+
+        if required_role and user.role != required_role:
             raise AppException("UNAUTHORIZED", "Invalid email or password", 401)
 
         access_token = create_access_token(user.id, user.role)
@@ -47,7 +50,7 @@ class AuthService:
         if not refresh_token_str:
             raise AppException("UNAUTHORIZED", "Refresh token is missing", 401)
 
-        payload = decode_token(refresh_token_str)
+        payload = decode_token(refresh_token_str, expected_type="refresh")
         user_id = payload.get("sub")
         jti = payload.get("jti")
 
